@@ -14,7 +14,6 @@ const client = new Client({
   password: 'Admin',
   port: 5432,
 })
-
 client.connect();
 
 app.set('view engine','ejs')
