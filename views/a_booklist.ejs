@@ -1,40 +1,44 @@
 <!DOCTYPE html>
 <html>
-<style>
-table, th, td {
-  border:1px solid black;
-  border-collapse: collapse;
-  text-align: center;
-}
-th, td {
-  padding: 5px;
-  text-align: center;
-}
-</style>
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>book list</title>
+	<link rel="stylesheet" href="/navigation_styles.css">
+	<style>
+		table, th, td {
+		  border:1px solid black;
+		  border-collapse: collapse;
+		  text-align: center;
+		}
+		th, td {
+		  padding: 5px;
+		  text-align: center;
+		}
+		</style>
 </head>
 <body>
+	<div class="topnav">
+        <a class="active" href="/admin_home">Books list</a>
+        <a href="/admin_home/add_book">Add a book</a>
+        <a href="/logout">Logout</a>
+    </div>
 	<table style="width:100%">
 		<caption>book list</caption>
   		<thead>
    		 <tr>
-      		<th>Book Id</th>
       		<th>Book Name </th>
   			<th>ISBN number</th>
   			<th>Author</th>
   			<th>Edition</th>
   			<th>Publication</th>
             <th>Books available</th>
-            <th>reserve book</th>
+            <th>Delete book</th>
     	 </tr>
   		</thead>
   		<tbody>
     	 <% data.forEach(entry => { %>
       	  <tr>
-        	<td><%= entry.b_id %></td>
         	<td><%= entry.book_name %></td>
         	<td><%= entry.isbn_number %></td>
         	<td><%= entry.author_name %></td>

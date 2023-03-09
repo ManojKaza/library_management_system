@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/navigation_styles.css">
+    <title>add a book</title>
+</head>
+<body>
+    <div class="topnav">
+        <a href="/admin_home/a_booklist">Books list</a>
+        <a class="active" href="/admin_home/add_book">Add a book</a>
+        <a href="/logout">Logout</a>
+    </div>
+    <form method = 'post'>
+        <label for = "book_name">Book Name:</label>
+        <input type="text" id="book_name" name="book_name" required><br>
+        <label for = "ISBN">ISBN Code</label>
+        <input type="text" id = "ISBN" name = "isbn_number" required><br>
+        <label for = author>Author name</label>
+        <input type="text" id = "author" name = "author_name" required><br>
+        <label for ="edition">Book Edition</label>
+        <input type="number" id  = "edition" name = "book_edition" required><br>
+        <label for ="publication">Publication</label>
+        <input type ="text" id="publication" name="publication" required><br>
+        <label for="stocks" >Book Stocks</label>
+        <input type="number" id="stocks" name="book_stocks" value="1"><br>
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>

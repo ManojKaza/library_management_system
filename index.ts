@@ -25,6 +25,8 @@ const session:{[uuid:string]:{u_name:string,u_id:number,u_role:string}} = {};
 app.use(bodyParser.urlencoded({ extended: false }));
 //cookie parser middleware
 app.use(cookieParser());
+//serving static files
+app.use(express.static('public/styles'))
 
 function servehtml (pagepath:string,filepath:string):void{
 	app.get(pagepath,(req,res) => {res.sendFile(__dirname + '/public/' + filepath + '.html')});
@@ -34,24 +36,39 @@ function servehtml (pagepath:string,filepath:string):void{
  servehtml('/','index');
 
 //serving login page
- servehtml('/login','login');
-
+app.get('/login',(req,res) => {
+  const sessionID = req.cookies.session;
+  if (session[sessionID]){
+		if(session[sessionID].u_role == 'admin'){
+      res.redirect('/admin_home');
+    }else{
+      res.redirect('/user_home');
+    }
+	}else{
+    res.sendFile(__dirname + '/public/login.html',)
+  }
+})
+//logout 
+app.get('/logout',(req,res) => {
+  res.clearCookie('session');
+  res.redirect('/login')
+})
 //serving register page
  servehtml('/register','register');
 
 //Users login
 app.post('/login', (req,res) => {
-  var username:string = req.body.username;
-  var password:string = req.body.password;
-  var userid: number ;
-  var query:string = 'SELECT * FROM users_login_details WHERE user_name = $1'
-  client.query(query,[username],(err:any,result:any) =>{
-    if (result.rowCount == 0){
-			res.json({"result" : "Invalid username,Please try again"});
-		}else{
-			if(result.rows[0].password != password){
-				res.json({"result": "You have entered invalid password, Please try again with correct password."});
-			}else if(result.rows[0].password === password){
+		var username:string = req.body.username;
+    var password:string = req.body.password;
+    var userid: number ;
+    var query:string = 'SELECT * FROM users_login_details WHERE user_name = $1'
+    client.query(query,[username],(err:any,result:any) =>{
+      if (result.rowCount == 0){
+			  res.json({"result" : "Invalid username,Please try again"});
+		  }else{
+			  if(result.rows[0].password != password){
+				  res.json({"result": "You have entered invalid password, Please try again with correct password."});
+			  }else if(result.rows[0].password === password){
 				  
             userid = result.rows[0].u_id;
             const user_role = result.rows[0].role;
@@ -64,38 +81,30 @@ app.post('/login', (req,res) => {
               sameSite: 'lax'
             });
             console.log("cookie set succesfully");
-            console.log(session)
           if(result.rows[0].role === 'admin'){
             res.redirect('/admin_home')
           }else{
             res.redirect('/user_home')
           }
+        }
       }
-    }
-   })
-  })
+	  })
+})
 //serving admin home page
 app.get('/admin_home',(req,res) => {
   const sessionID = req.cookies.session;
   const usersession = session[sessionID];
   if (usersession){
-		res.sendFile(__dirname + '/public/admin_home.html');
+		const query:string = 'SELECT * FROM book_list'
+    client.query(query,(err,result) => {
+    res.render('a_booklist',{data: result.rows});
+    })
 	}else{
-		res.json({"result":"Invalid session or session expired"});
+		res.redirect('/login');
 	}
 })
 //serving users home page
 app.get('/user_home',(req,res) => {
-  const sessionID = req.cookies.session;
-  const usersession = session[sessionID];
-  if (usersession){
-		res.sendFile(__dirname + '/public/user_home.html');
-	}else{
-		res.json({"result":"Invalid session or session expired"});
-	}
-})
-//users book list functions
-app.get('/user_home/u_booklist',(req,res) =>{
   const sessionID = req.cookies.session;
   const usersession = session[sessionID];
   if (usersession){
@@ -104,9 +113,10 @@ app.get('/user_home/u_booklist',(req,res) =>{
     res.render('u_booklist',{data: result.rows});
     })
 	}else{
-		res.json({"result":"Invalid session or session expired"});
-  }
+		res.redirect('/login');
+	}
 })
+
 //user reserve a book
 app.get('/user_home/reserve/:id',(req,res) =>{
   const book_id:string = req.params.id;
@@ -127,30 +137,46 @@ app.get('/user_home/reserve/:id',(req,res) =>{
   })
 })
 
-//admin book list functions
-app.get('/admin_home/a_booklist',(req,res) =>{
-  const sessionID = req.cookies.session;
-  const usersession = session[sessionID];
-  if (usersession){
-		const query:string = 'SELECT * FROM book_list'
-    client.query(query,(err,result) => {
-    res.render('a_booklist',{data: result.rows});
-    })
-	}else{
-		res.json({"result":"Invalid session or session expired"});
-  }
-})
+
 //delete a book
 app.get('/admin_home/delete/:id',(req,res) =>{
   const book_id:string = req.params.id;
   const query:string = 'DELETE FROM book_list WHERE b_id = $1'
   client.query(query,[book_id],(err,result) =>{
-    res.json({message:"The book is deleted"})
+    res.redirect('/admin_home/a_booklist')
   })
  })
 //serving add a book
-app.get
+app.get('/admin_home/add_book',(req,res) => {
+  const sessionID = req.cookies.session;
+  const usersession = session[sessionID];
+  if (usersession){
+		res.sendFile(__dirname + '/public/add_book.html')
+	}else{
+		res.redirect('/login');
+	}
+})
 //add a book
+app.post('/admin_home/add_book',(req,res) =>{
+  const bname:string = req.body.book_name;
+  const isbn:string = req.body.isbn_number;
+  const author:string = req.body.author_name;
+  const edition:number = req.body.book_edition;
+  const publ:string = req.body.publication;
+  const stocks:number = req.body.book_stocks;
+  const query:string = 'SELECT * FROM book_list WHERE book_name = $1 OR isbn_number = $2'
+  client.query(query,[bname,isbn],(err,result) => {
+    if (result.rowCount === 0){
+      const query1:string = "INSERT INTO book_list (book_name,isbn_number,author_name,book_edition,publication,book_stocks) VALUES ($1,$2,$3,$4,$5,$6)"
+      client.query(query1,[bname,isbn,author,edition,publ,stocks],(err1,result1) => {
+        res.redirect('/admin_home/a_booklist')
+      }) 
+    }else{
+      res.json({message:"The book or isbn code already exists."})
+    }
+  })
+})
 
 app.listen(3000)
+
 

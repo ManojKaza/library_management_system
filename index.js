@@ -23,13 +23,33 @@ const session = {};
 app.use(body_parser_1.default.urlencoded({ extended: false }));
 //cookie parser middleware
 app.use((0, cookie_parser_1.default)());
+//serving static files
+app.use(express_1.default.static('public/styles'));
 function servehtml(pagepath, filepath) {
     app.get(pagepath, (req, res) => { res.sendFile(__dirname + '/public/' + filepath + '.html'); });
 }
 //Serving index page
 servehtml('/', 'index');
 //serving login page
-servehtml('/login', 'login');
+app.get('/login', (req, res) => {
+    const sessionID = req.cookies.session;
+    if (session[sessionID]) {
+        if (session[sessionID].u_role == 'admin') {
+            res.redirect('/admin_home');
+        }
+        else {
+            res.redirect('/user_home');
+        }
+    }
+    else {
+        res.sendFile(__dirname + '/public/login.html');
+    }
+});
+//logout 
+app.get('/logout', (req, res) => {
+    res.clearCookie('session');
+    res.redirect('/login');
+});
 //serving register page
 servehtml('/register', 'register');
 //Users login
@@ -74,25 +94,17 @@ app.get('/admin_home', (req, res) => {
     const sessionID = req.cookies.session;
     const usersession = session[sessionID];
     if (usersession) {
-        res.sendFile(__dirname + '/public/admin_home.html');
+        const query = 'SELECT * FROM book_list';
+        client.query(query, (err, result) => {
+            res.render('a_booklist', { data: result.rows });
+        });
     }
     else {
-        res.json({ "result": "Invalid session or session expired" });
+        res.redirect('/login');
     }
 });
 //serving users home page
 app.get('/user_home', (req, res) => {
-    const sessionID = req.cookies.session;
-    const usersession = session[sessionID];
-    if (usersession) {
-        res.sendFile(__dirname + '/public/user_home.html');
-    }
-    else {
-        res.json({ "result": "Invalid session or session expired" });
-    }
-});
-//users book list functions
-app.get('/user_home/u_booklist', (req, res) => {
     const sessionID = req.cookies.session;
     const usersession = session[sessionID];
     if (usersession) {
@@ -102,7 +114,7 @@ app.get('/user_home/u_booklist', (req, res) => {
         });
     }
     else {
-        res.json({ "result": "Invalid session or session expired" });
+        res.redirect('/login');
     }
 });
 //user reserve a book
@@ -124,27 +136,44 @@ app.get('/user_home/reserve/:id', (req, res) => {
         }
     });
 });
-//admin book list functions
-app.get('/admin_home/a_booklist', (req, res) => {
-    const sessionID = req.cookies.session;
-    const usersession = session[sessionID];
-    if (usersession) {
-        const query = 'SELECT * FROM book_list';
-        client.query(query, (err, result) => {
-            res.render('a_booklist', { data: result.rows });
-        });
-    }
-    else {
-        res.json({ "result": "Invalid session or session expired" });
-    }
-});
 //delete a book
 app.get('/admin_home/delete/:id', (req, res) => {
     const book_id = req.params.id;
     const query = 'DELETE FROM book_list WHERE b_id = $1';
     client.query(query, [book_id], (err, result) => {
-        res.json({ message: "The book is deleted" });
+        res.redirect('/admin_home/a_booklist');
     });
 });
-app.post;
+//serving add a book
+app.get('/admin_home/add_book', (req, res) => {
+    const sessionID = req.cookies.session;
+    const usersession = session[sessionID];
+    if (usersession) {
+        res.sendFile(__dirname + '/public/add_book.html');
+    }
+    else {
+        res.redirect('/login');
+    }
+});
+//add a book
+app.post('/admin_home/add_book', (req, res) => {
+    const bname = req.body.book_name;
+    const isbn = req.body.isbn_number;
+    const author = req.body.author_name;
+    const edition = req.body.book_edition;
+    const publ = req.body.publication;
+    const stocks = req.body.book_stocks;
+    const query = 'SELECT * FROM book_list WHERE book_name = $1 OR isbn_number = $2';
+    client.query(query, [bname, isbn], (err, result) => {
+        if (result.rowCount === 0) {
+            const query1 = "INSERT INTO book_list (book_name,isbn_number,author_name,book_edition,publication,book_stocks) VALUES ($1,$2,$3,$4,$5,$6)";
+            client.query(query1, [bname, isbn, author, edition, publ, stocks], (err1, result1) => {
+                res.redirect('/admin_home/a_booklist');
+            });
+        }
+        else {
+            res.json({ message: "The book or isbn code already exists." });
+        }
+    });
+});
 app.listen(3000);
