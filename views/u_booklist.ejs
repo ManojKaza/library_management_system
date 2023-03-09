@@ -19,7 +19,7 @@
 </head>
 <body>
 	<div class="topnav">
-        <a class="active" href="/user_home">Books list</a>
+        <a class="active" href="/home">Books list</a>
         <a href="/logout">Logout</a>
     </div>
 	<table style="width:100%">
@@ -44,7 +44,13 @@
         	<td><%= entry.book_edition %></td>
         	<td><%= entry.publication %></td>
             <td><%= entry.book_stocks %></td>
-            <td><a href='/user_home/reserve/<%= entry.b_id %>'>Reserve</a></td>
+            <td>
+				<% if(entry.book_stocks !== 0) { %>
+					<a href='/home/reserve/<%= entry.b_id %>'>Reserve</a>
+				<% }else{ %>
+					No Books Available
+				<% } %>
+			</td>
       	  </tr>
     	 <% }) %>  		
     	</tbody>

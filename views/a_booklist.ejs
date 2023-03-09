@@ -19,8 +19,8 @@
 </head>
 <body>
 	<div class="topnav">
-        <a class="active" href="/admin_home">Books list</a>
-        <a href="/admin_home/add_book">Add a book</a>
+        <a class="active" href="/home">Books list</a>
+        <a href="/home/add_book">Add a book</a>
         <a href="/logout">Logout</a>
     </div>
 	<table style="width:100%">
@@ -45,7 +45,7 @@
         	<td><%= entry.book_edition %></td>
         	<td><%= entry.publication %></td>
             <td><%= entry.book_stocks %></td>
-            <td><a href='/admin_home/delete/<%= entry.b_id %>'>delete</a></td>
+            <td><a href='/home/delete/<%= entry.b_id %>'>delete</a></td>
       	  </tr>
     	 <% }) %>  		
     	</tbody>

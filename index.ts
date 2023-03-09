@@ -80,36 +80,23 @@ app.post('/login', (req,res) => {
               sameSite: 'lax'
             });
             console.log("cookie set succesfully");
-          if(result.rows[0].role === 'admin'){
-            res.redirect('/admin_home')
-          }else{
-            res.redirect('/user_home')
-          }
+          res.redirect("/home")
         }
       }
 	  })
 })
 //serving admin home page
-app.get('/admin_home',(req,res) => {
+app.get('/home',(req,res) => {
   const sessionID = req.cookies.session;
   const usersession = session[sessionID];
   if (usersession){
 		const query:string = 'SELECT * FROM book_list'
     client.query(query,(err,result) => {
-    res.render('a_booklist',{data: result.rows});
-    })
-	}else{
-		res.redirect('/login');
-	}
-})
-//serving users home page
-app.get('/user_home',(req,res) => {
-  const sessionID = req.cookies.session;
-  const usersession = session[sessionID];
-  if (usersession){
-		const query:string = 'SELECT * FROM book_list'
-    client.query(query,(err,result) => {
-    res.render('u_booklist',{data: result.rows});
+      if(usersession.u_role === 'admin'){
+        res.render('a_booklist',{data: result.rows});
+      }else{
+        res.render('u_booklist',{data: result.rows});
+      }
     })
 	}else{
 		res.redirect('/login');
@@ -117,7 +104,7 @@ app.get('/user_home',(req,res) => {
 })
 
 //user reserve a book
-app.get('/user_home/reserve/:id',(req,res) =>{
+app.get('/home/reserve/:id',(req,res) =>{
   const book_id:string = req.params.id;
   const query: string = 'SELECT book_stocks FROM book_list WHERE b_id = $1';
   client.query(query,[book_id],(err,result) => {
@@ -128,25 +115,23 @@ app.get('/user_home/reserve/:id',(req,res) =>{
       const query1:string = 'UPDATE book_list SET book_stocks = $1 WHERE b_id = $2';
       client.query(query1,[stocks,book_id],(error1,result1) => {
         
-        res.json({message:"book reserved"});
+        res.redirect('/home')
       })
-    }else{
-      res.json({message:"Thebook is out of stock"})
     }
   })
 })
 
 
 //delete a book
-app.get('/admin_home/delete/:id',(req,res) =>{
+app.get('/home/delete/:id',(req,res) =>{
   const book_id:string = req.params.id;
   const query:string = 'DELETE FROM book_list WHERE b_id = $1'
   client.query(query,[book_id],(err,result) =>{
-    res.redirect('/admin_home/a_booklist')
+    res.redirect('/home')
   })
  })
 //serving add a book
-app.get('/admin_home/add_book',(req,res) => {
+app.get('/home/add_book',(req,res) => {
   const sessionID = req.cookies.session;
   const usersession = session[sessionID];
   if (usersession){
@@ -156,7 +141,7 @@ app.get('/admin_home/add_book',(req,res) => {
 	}
 })
 //add a book
-app.post('/admin_home/add_book',(req,res) =>{
+app.post('/home/add_book',(req,res) =>{
   const bname:string = req.body.book_name;
   const isbn:string = req.body.isbn_number;
   const author:string = req.body.author_name;
@@ -168,7 +153,7 @@ app.post('/admin_home/add_book',(req,res) =>{
     if (result.rowCount === 0){
       const query1:string = "INSERT INTO book_list (book_name,isbn_number,author_name,book_edition,publication,book_stocks) VALUES ($1,$2,$3,$4,$5,$6)"
       client.query(query1,[bname,isbn,author,edition,publ,stocks],(err1,result1) => {
-        res.redirect('/admin_home/a_booklist')
+        res.redirect('/home')
       }) 
     }else{
       res.json({message:"The book or isbn code already exists."})
