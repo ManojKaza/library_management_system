@@ -3,7 +3,7 @@ import bodyParser from 'body-parser';
 import { Client } from 'pg';
 import cookieParser from 'cookie-parser';
 import { v4 } from 'uuid';
-import { toASCII } from 'punycode';
+import moment,{Moment} from 'moment'
 
 const app = express();
 
@@ -103,25 +103,6 @@ app.get('/home',(req,res) => {
 	}
 })
 
-//user reserve a book
-app.get('/home/reserve/:id',(req,res) =>{
-  const book_id:string = req.params.id;
-  const query: string = 'SELECT book_stocks FROM book_list WHERE b_id = $1';
-  client.query(query,[book_id],(err,result) => {
-    var stocks:number = result.rows[0].book_stocks; 
-    if (stocks >= 1){
-      stocks -= 1; 
-      console.log(stocks);
-      const query1:string = 'UPDATE book_list SET book_stocks = $1 WHERE b_id = $2';
-      client.query(query1,[stocks,book_id],(error1,result1) => {
-        
-        res.redirect('/home')
-      })
-    }
-  })
-})
-
-
 //delete a book
 app.get('/home/delete/:id',(req,res) =>{
   const book_id:string = req.params.id;
@@ -159,7 +140,34 @@ app.post('/home/add_book',(req,res) =>{
       res.json({message:"The book or isbn code already exists."})
     }
   })
+}) 
+
+// users reserve
+app.get('/home/reserve/:id',(req,res) =>{
+  const book_id:string = req.params.id;
+  const query: string = 'SELECT book_stocks FROM book_list WHERE b_id = $1';
+  client.query(query,[book_id],(err,result) => {
+    var stocks:number = result.rows[0].book_stocks; 
+    if (stocks >= 1){
+      stocks -= 1;
+      let date:string = moment().format('DD/MM/YYYY');
+      const sessionID = req.cookies.session;
+      const usersession = session[sessionID];
+      const loaned_to:{[user_name:string]:{u_name:string,u_id:number,date_borrowed:string}} = {};
+      loaned_to[usersession.u_name] = {u_name:usersession.u_name,u_id:usersession.u_id,date_borrowed:date};
+      const query1:string = "UPDATE book_list SET loaned_to = $1,book_stocks = $2 WHERE b_id = $3;"
+      client.query(query1,[loaned_to,stocks,book_id],(err1,result1) =>{
+        client.query('SELECT * FROM book_list WHERE b_id = $1',[book_id],(err2,result2)=>{
+          const a:any = result2.rows[0].loaned_to[usersession.u_name].date_borrowed;
+          console.log(a)
+        })
+        res.redirect('/home');
+      })
+    }
+  }) 
 })
+
+
 
 app.listen(3000)
 

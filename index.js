@@ -8,6 +8,7 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const pg_1 = require("pg");
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const uuid_1 = require("uuid");
+const moment_1 = __importDefault(require("moment"));
 const app = (0, express_1.default)();
 const client = new pg_1.Client({
     host: 'localhost',
@@ -102,22 +103,6 @@ app.get('/home', (req, res) => {
         res.redirect('/login');
     }
 });
-//user reserve a book
-app.get('/home/reserve/:id', (req, res) => {
-    const book_id = req.params.id;
-    const query = 'SELECT book_stocks FROM book_list WHERE b_id = $1';
-    client.query(query, [book_id], (err, result) => {
-        var stocks = result.rows[0].book_stocks;
-        if (stocks >= 1) {
-            stocks -= 1;
-            console.log(stocks);
-            const query1 = 'UPDATE book_list SET book_stocks = $1 WHERE b_id = $2';
-            client.query(query1, [stocks, book_id], (error1, result1) => {
-                res.redirect('/home');
-            });
-        }
-    });
-});
 //delete a book
 app.get('/home/delete/:id', (req, res) => {
     const book_id = req.params.id;
@@ -155,6 +140,30 @@ app.post('/home/add_book', (req, res) => {
         }
         else {
             res.json({ message: "The book or isbn code already exists." });
+        }
+    });
+});
+// users reserve
+app.get('/home/reserve/:id', (req, res) => {
+    const book_id = req.params.id;
+    const query = 'SELECT book_stocks FROM book_list WHERE b_id = $1';
+    client.query(query, [book_id], (err, result) => {
+        var stocks = result.rows[0].book_stocks;
+        if (stocks >= 1) {
+            stocks -= 1;
+            let date = (0, moment_1.default)().format('DD/MM/YYYY');
+            const sessionID = req.cookies.session;
+            const usersession = session[sessionID];
+            const loaned_to = {};
+            loaned_to[usersession.u_name] = { u_name: usersession.u_name, u_id: usersession.u_id, date_borrowed: date };
+            const query1 = "UPDATE book_list SET loaned_to = $1,book_stocks = $2 WHERE b_id = $3;";
+            client.query(query1, [loaned_to, stocks, book_id], (err1, result1) => {
+                client.query('SELECT * FROM book_list WHERE b_id = $1', [book_id], (err2, result2) => {
+                    const a = result2.rows[0].loaned_to[usersession.u_name].date_borrowed;
+                    console.log(a);
+                });
+                res.redirect('/home');
+            });
         }
     });
 });
