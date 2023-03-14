@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>book list</title>
+	<link rel="stylesheet" href="/navigation_styles.css">
+</head>
+<body>
+	<div class="topnav">
+		<a class="active" href="/home">borrowed books</a>
+    <a href="/home/reserve">reserve a book</a>
+    <a href="/logout">Logout</a>
+  </div>
+  <table style="width:70%">
+	<caption>book list</caption>
+  		<thead>
+   		 <tr>
+      		<th>Book Name </th>
+          <th>Date Borrowed</th>
+          <th>Return Book</th>
+         </tr>
+        </thead>
+        <tbody>
+         <% data.forEach(entry => { %>
+             <tr>
+               <td><%= entry.book_name %></td>
+               <td><%= entry.loaned_to[u_name].date_borrowed %></td>
+               <td><a href='/home/<%= entry.b_id %>'>Return</a></td>
+             </tr>
+         <% }) %> 
+        </tbody>
+  </table>
+</body>
+</html>

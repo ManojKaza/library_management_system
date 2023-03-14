@@ -5,21 +5,11 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>book list</title>
 	<link rel="stylesheet" href="/navigation_styles.css">
-	<style>
-		table, th, td {
-		  border:1px solid black;
-		  border-collapse: collapse;
-		  text-align: center;
-		}
-		th, td {
-		  padding: 5px;
-		  text-align: center;
-		}
-		</style>
 </head>
 <body>
 	<div class="topnav">
-        <a class="active" href="/home">Books list</a>
+		<a href = "/home">borrowed books</a>
+        <a class="active" href="/home/reserve">reserve a book</a>
         <a href="/logout">Logout</a>
     </div>
 	<table style="width:100%">
@@ -45,10 +35,12 @@
         	<td><%= entry.publication %></td>
             <td><%= entry.book_stocks %></td>
             <td>
-				<% if(entry.book_stocks !== 0) { %>
+				<% if(entry.book_stocks !== 0 && entry.borrowed_to[u_name] == null) { %>
 					<a href='/home/reserve/<%= entry.b_id %>'>Reserve</a>
-				<% }else{ %>
+				<% }else if(entry.book_stocks === 0){ %>
 					No Books Available
+				<% }else{ %>
+					Book already reserved
 				<% } %>
 			</td>
       	  </tr>

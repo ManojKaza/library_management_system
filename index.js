@@ -26,6 +26,18 @@ app.use(body_parser_1.default.urlencoded({ extended: false }));
 app.use((0, cookie_parser_1.default)());
 //serving static files
 app.use(express_1.default.static('public/styles'));
+//session id verification middleware
+app.use('/home', (req, res, next) => {
+    const sessionID = req.cookies.session;
+    const usersession = session[sessionID];
+    if (!usersession) {
+        res.redirect('/login');
+    }
+    else {
+        next();
+    }
+});
+// function for serving html
 function servehtml(pagepath, filepath) {
     app.get(pagepath, (req, res) => { res.sendFile(__dirname + '/public/' + filepath + '.html'); });
 }
@@ -34,16 +46,12 @@ servehtml('/', 'index');
 //serving login page
 app.get('/login', (req, res) => {
     const sessionID = req.cookies.session;
-    if (session[sessionID]) {
-        if (session[sessionID].u_role == 'admin') {
-            res.redirect('/admin_home');
-        }
-        else {
-            res.redirect('/user_home');
-        }
+    const usersession = session[sessionID];
+    if (!usersession) {
+        res.sendFile(__dirname + '/public/login.html');
     }
     else {
-        res.sendFile(__dirname + '/public/login.html');
+        res.redirect('/home');
     }
 });
 //logout 
@@ -53,6 +61,8 @@ app.get('/logout', (req, res) => {
 });
 //serving register page
 servehtml('/register', 'register');
+//serving about us page
+servehtml('/about_us', 'about_us');
 //Users login
 app.post('/login', (req, res) => {
     var username = req.body.username;
@@ -78,7 +88,6 @@ app.post('/login', (req, res) => {
                     httpOnly: true,
                     sameSite: 'lax'
                 });
-                console.log("cookie set succesfully");
                 res.redirect("/home");
             }
         }
@@ -88,21 +97,65 @@ app.post('/login', (req, res) => {
 app.get('/home', (req, res) => {
     const sessionID = req.cookies.session;
     const usersession = session[sessionID];
-    if (usersession) {
+    const u_name = usersession.u_name;
+    if (usersession.u_role === 'admin') {
         const query = 'SELECT * FROM book_list';
         client.query(query, (err, result) => {
-            if (usersession.u_role === 'admin') {
-                res.render('a_booklist', { data: result.rows });
-            }
-            else {
-                res.render('u_booklist', { data: result.rows });
-            }
+            res.render('a_booklist', { data: result.rows });
         });
     }
     else {
-        res.redirect('/login');
+        const query = "SELECT b_id,book_name,loaned_to FROM book_list WHERE borrowed_to->$1 = $2";
+        client.query(query, [u_name, true], (err, result) => {
+            res.render('u_return', { data: result.rows, u_name });
+        });
     }
 });
+//resrve book
+app.get('/home/reserve', (req, res) => {
+    const sessionID = req.cookies.session;
+    const usersession = session[sessionID];
+    const u_name = usersession.u_name;
+    const query = "SELECT * FROM book_list";
+    client.query(query, (err, result) => {
+        res.render('u_reserve', { data: result.rows, u_name });
+    });
+});
+// users reserve
+app.get('/home/reserve/:id', (req, res) => {
+    const book_id = req.params.id;
+    const query = 'SELECT book_stocks,loaned_to,borrowed_to FROM book_list WHERE b_id = $1';
+    client.query(query, [book_id], (err, result) => {
+        var stocks = result.rows[0].book_stocks;
+        const sessionID = req.cookies.session;
+        const usersession = session[sessionID];
+        if (stocks >= 1 && !result.rows[0].borrowed_to[usersession.u_name] || result.rows[0].borrowed_to[usersession.u_name] == false) {
+            stocks -= 1;
+            let date = (0, moment_1.default)().format('DD/MM/YYYY');
+            const loaned_to = result.rows[0].loaned_to;
+            loaned_to[usersession.u_name] = { u_name: usersession.u_name, u_id: usersession.u_id, date_borrowed: date };
+            const borrowed_to = result.rows[0].borrowed_to;
+            borrowed_to[usersession.u_name] = true;
+            const query1 = "UPDATE book_list SET loaned_to = $1,book_stocks = $2,borrowed_to = $3 WHERE b_id = $4;";
+            client.query(query1, [loaned_to, stocks, borrowed_to, book_id], (err1, result1) => {
+                res.redirect('/home');
+            });
+        }
+        else {
+            res.json({ message: "You have already reserved the book" });
+        }
+    });
+});
+//return a book
+// app.get('/home/:id',(req,res) =>{
+//   const book_id:string = req.params.id;
+//   const sessionID = req.cookies.session;
+//   const usersession = session[sessionID];
+//   const query:string = 'UPDATE book_list SET loaned_to->$1 = $2,borrowed_to->$1 = $2 WHERE b_id = $3'
+//   client.query(query,[usersession.u_name,false,book_id],(err,result) =>{
+//     res.redirect('/home');
+//   })
+// })
 //delete a book
 app.get('/home/delete/:id', (req, res) => {
     const book_id = req.params.id;
@@ -113,14 +166,7 @@ app.get('/home/delete/:id', (req, res) => {
 });
 //serving add a book
 app.get('/home/add_book', (req, res) => {
-    const sessionID = req.cookies.session;
-    const usersession = session[sessionID];
-    if (usersession) {
-        res.sendFile(__dirname + '/public/add_book.html');
-    }
-    else {
-        res.redirect('/login');
-    }
+    res.sendFile(__dirname + '/public/add_book.html');
 });
 //add a book
 app.post('/home/add_book', (req, res) => {
@@ -140,30 +186,6 @@ app.post('/home/add_book', (req, res) => {
         }
         else {
             res.json({ message: "The book or isbn code already exists." });
-        }
-    });
-});
-// users reserve
-app.get('/home/reserve/:id', (req, res) => {
-    const book_id = req.params.id;
-    const query = 'SELECT book_stocks FROM book_list WHERE b_id = $1';
-    client.query(query, [book_id], (err, result) => {
-        var stocks = result.rows[0].book_stocks;
-        if (stocks >= 1) {
-            stocks -= 1;
-            let date = (0, moment_1.default)().format('DD/MM/YYYY');
-            const sessionID = req.cookies.session;
-            const usersession = session[sessionID];
-            const loaned_to = {};
-            loaned_to[usersession.u_name] = { u_name: usersession.u_name, u_id: usersession.u_id, date_borrowed: date };
-            const query1 = "UPDATE book_list SET loaned_to = $1,book_stocks = $2 WHERE b_id = $3;";
-            client.query(query1, [loaned_to, stocks, book_id], (err1, result1) => {
-                client.query('SELECT * FROM book_list WHERE b_id = $1', [book_id], (err2, result2) => {
-                    const a = result2.rows[0].loaned_to[usersession.u_name].date_borrowed;
-                    console.log(a);
-                });
-                res.redirect('/home');
-            });
         }
     });
 });
