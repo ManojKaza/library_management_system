@@ -26,7 +26,7 @@
              <tr>
                <td><%= entry.book_name %></td>
                <td><%= entry.loaned_to[u_name].date_borrowed %></td>
-               <td><a href='/home/<%= entry.b_id %>'>Return</a></td>
+               <td><a href='/home/return/<%= entry.b_id %>'>Return</a></td>
              </tr>
          <% }) %> 
         </tbody>

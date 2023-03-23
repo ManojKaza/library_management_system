@@ -10,7 +10,7 @@ const app = express();
 const client = new Client({
   host: 'localhost',
   user: 'manoj',
-  database: 'library',
+  database: 'Library',
   password: 'Admin',
   port: 5432,
 })
@@ -68,7 +68,7 @@ app.post('/login', (req,res) => {
 		var username:string = req.body.username;
     var password:string = req.body.password;
     var userid: number ;
-    var query:string = 'SELECT * FROM users_login_details WHERE user_name = $1'
+    var query:string = 'SELECT * FROM users WHERE username = $1'
     client.query(query,[username],(err:any,result:any) =>{
       if (result.rowCount == 0){
 			  res.json({"result" : "Invalid username,Please try again"});
@@ -77,7 +77,7 @@ app.post('/login', (req,res) => {
 				  res.json({"result": "You have entered invalid password, Please try again with correct password."});
 			  }else if(result.rows[0].password === password){
             userid = result.rows[0].u_id;
-            const user_role = result.rows[0].role;
+            const user_role = result.rows[0].u_role;
             const sessionID = v4();
             session[sessionID] = {u_name:username,u_id:userid,u_role:user_role} 
             res.cookie(`session`,sessionID,{
@@ -102,8 +102,8 @@ app.get('/home',(req,res) => {
       res.render('a_booklist',{data: result.rows});
     })
   }else{
-    const query:string = "SELECT b_id,book_name,loaned_to FROM book_list WHERE borrowed_to->$1 = $2"
-    client.query(query,[u_name,true],(err,result) =>{
+    const query:string = "SELECT b_id,book_name,loaned_to FROM book_list WHERE loaned_to->$1 IS NOT NULL"
+    client.query(query,[u_name],(err,result) =>{
       res.render('u_return',{data:result.rows,u_name});
     })
   }
@@ -122,20 +122,18 @@ app.get('/home/reserve',(req,res) => {
 // users reserve
 app.get('/home/reserve/:id',(req,res) =>{
   const book_id:string = req.params.id;
-  const query: string = 'SELECT book_stocks,loaned_to,borrowed_to FROM book_list WHERE b_id = $1';
+  const query: string = 'SELECT book_stocks,loaned_to FROM book_list WHERE b_id = $1';
   client.query(query,[book_id],(err,result) => {
     var stocks:number = result.rows[0].book_stocks;
     const sessionID = req.cookies.session;
     const usersession = session[sessionID];
-    if (stocks >= 1 && !result.rows[0].borrowed_to[usersession.u_name] || result.rows[0].borrowed_to[usersession.u_name] == false){
+    if (stocks >= 1 && !result.rows[0].loaned_to[usersession.u_name]){
       stocks -= 1;
       let date:string = moment().format('DD/MM/YYYY');
       const loaned_to:{[user_name:string]:{u_name:string,u_id:number,date_borrowed:string}} = result.rows[0].loaned_to;
       loaned_to[usersession.u_name] = {u_name:usersession.u_name,u_id:usersession.u_id,date_borrowed:date};
-      const borrowed_to:{[key: string]: boolean}= result.rows[0].borrowed_to;
-      borrowed_to[usersession.u_name] = true;
-      const query1:string = "UPDATE book_list SET loaned_to = $1,book_stocks = $2,borrowed_to = $3 WHERE b_id = $4;"
-      client.query(query1,[loaned_to,stocks,borrowed_to,book_id],(err1,result1) =>{
+      const query1:string = "UPDATE book_list SET loaned_to = $1,book_stocks = $2 WHERE b_id = $3;"
+      client.query(query1,[loaned_to,stocks,book_id],(err1,result1) =>{
         res.redirect('/home');
       })
     }else{
@@ -144,16 +142,33 @@ app.get('/home/reserve/:id',(req,res) =>{
   }) 
 })
 //return a book
-// app.get('/home/:id',(req,res) =>{
-//   const book_id:string = req.params.id;
-//   const sessionID = req.cookies.session;
-//   const usersession = session[sessionID];
-//   const query:string = 'UPDATE book_list SET loaned_to->$1 = $2,borrowed_to->$1 = $2 WHERE b_id = $3'
-//   client.query(query,[usersession.u_name,false,book_id],(err,result) =>{
-//     res.redirect('/home');
-//   })
-// })
+app.get('/home/return/:id',(req,res) =>{
+  const book_id:string = req.params.id;
+  const sessionID = req.cookies.session;
+  const usersession = session[sessionID];
+  const query = 'SELECT * FROM book_list WHERE b_id = $1';
+  client.query(query,[book_id],(err,result) =>{
+    const u_name:string = usersession.u_name;
+    delete result.rows[0].loaned_to[u_name];
+    let stocks:number = result.rows[0].book_stocks +1;
+    const query1:string = 'UPDATE book_list SET loaned_to = $1,book_stocks = $2 WHERE b_id = $3';
+    const a = result.rows[0].loaned_to;
+    client.query(query1,[a,stocks,book_id],(err1,result1) =>{
+      res.redirect('/home');
+    })
+  })
+  // const query:string = 'UPDATE book_list SET loaned_to->$1 = $2 WHERE b_id = $3'
+  // client.query(query,[usersession.u_name,false,book_id],(err,result) =>{
+  //   res.redirect('/home');
+  // })
+})
+//edit a book
+app.get('/home/book_view/:id',(req,res) =>{
+  const query:string = 'SELECT * FROM book_list WHERE b_id = $1'
+  client.query(query,[req.params.id],(err,result)=>{
 
+  })
+})
 //delete a book
 app.get('/home/delete/:id',(req,res) =>{
   const book_id:string = req.params.id;
