@@ -35,12 +35,10 @@
         	<td><%= entry.publication %></td>
             <td><%= entry.book_stocks %></td>
             <td>
-				<% if(entry.book_stocks !== 0 && !entry.loaned_to[u_name]) { %>
+				<% if(entry.book_stocks !== 0) { %>
 					<a href='/home/reserve/<%= entry.b_id %>'>Reserve</a>
-				<% }else if(entry.book_stocks === 0){ %>
-					No Books Available
 				<% }else{ %>
-					Book already reserved
+					No Books Available
 				<% } %>
 			</td>
       	  </tr>

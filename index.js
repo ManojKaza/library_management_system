@@ -8,7 +8,6 @@ const body_parser_1 = __importDefault(require("body-parser"));
 const pg_1 = require("pg");
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const uuid_1 = require("uuid");
-const moment_1 = __importDefault(require("moment"));
 const app = (0, express_1.default)();
 const client = new pg_1.Client({
     host: 'localhost',
@@ -17,7 +16,15 @@ const client = new pg_1.Client({
     password: 'Admin',
     port: 5432,
 });
+const client1 = new pg_1.Client({
+    host: 'localhost',
+    user: 'manoj',
+    database: 'Audit',
+    password: 'Admin',
+    port: 5432,
+});
 client.connect();
+client1.connect();
 app.set('view engine', 'ejs');
 const session = {};
 //body parser middleware
@@ -97,7 +104,7 @@ app.post('/login', (req, res) => {
 app.get('/home', (req, res) => {
     const sessionID = req.cookies.session;
     const usersession = session[sessionID];
-    const u_name = usersession.u_name;
+    const u_id = usersession.u_id;
     if (usersession.u_role === 'admin') {
         const query = 'SELECT * FROM book_list';
         client.query(query, (err, result) => {
@@ -105,9 +112,9 @@ app.get('/home', (req, res) => {
         });
     }
     else {
-        const query = "SELECT b_id,book_name,loaned_to FROM book_list WHERE loaned_to->$1 IS NOT NULL";
-        client.query(query, [u_name], (err, result) => {
-            res.render('u_return', { data: result.rows, u_name });
+        const query = "SELECT b.*,l.ts FROM book_list b JOIN loaned l ON l.b_id = b.b_id WHERE u_id = $1";
+        client.query(query, [u_id], (err, result) => {
+            res.render('u_return', { data: result.rows });
         });
     }
 });
@@ -115,28 +122,27 @@ app.get('/home', (req, res) => {
 app.get('/home/reserve', (req, res) => {
     const sessionID = req.cookies.session;
     const usersession = session[sessionID];
-    const u_name = usersession.u_name;
-    const query = "SELECT * FROM book_list";
-    client.query(query, (err, result) => {
-        res.render('u_reserve', { data: result.rows, u_name });
+    const u_id = usersession.u_id;
+    const query = "select * from book_list B where B.b_id not in (select b_id from loaned where u_id = $1)";
+    client.query(query, [u_id], (err, result) => {
+        res.render('u_reserve', { data: result.rows });
     });
 });
 // users reserve
 app.get('/home/reserve/:id', (req, res) => {
     const book_id = req.params.id;
-    const query = 'SELECT book_stocks,loaned_to FROM book_list WHERE b_id = $1';
+    const query = 'SELECT * FROM book_list WHERE b_id = $1';
     client.query(query, [book_id], (err, result) => {
         var stocks = result.rows[0].book_stocks;
         const sessionID = req.cookies.session;
         const usersession = session[sessionID];
-        if (stocks >= 1 && !result.rows[0].loaned_to[usersession.u_name]) {
+        if (stocks >= 1) {
             stocks -= 1;
-            let date = (0, moment_1.default)().format('DD/MM/YYYY');
-            const loaned_to = result.rows[0].loaned_to;
-            loaned_to[usersession.u_name] = { u_name: usersession.u_name, u_id: usersession.u_id, date_borrowed: date };
-            const query1 = "UPDATE book_list SET loaned_to = $1,book_stocks = $2 WHERE b_id = $3;";
-            client.query(query1, [loaned_to, stocks, book_id], (err1, result1) => {
-                res.redirect('/home');
+            const query1 = "UPDATE book_list SET book_stocks = $1 WHERE b_id = $2";
+            client.query(query1, [stocks, book_id], (err1, result1) => {
+                client.query('INSERT INTO loaned (u_id, b_id) SELECT $1,$2 WHERE NOT EXISTS (SELECT * FROM loaned WHERE u_id = $1 AND b_id = $2);', [usersession.u_id, book_id], (err2, result2) => {
+                    res.redirect('/home');
+                });
             });
         }
         else {
@@ -151,19 +157,15 @@ app.get('/home/return/:id', (req, res) => {
     const usersession = session[sessionID];
     const query = 'SELECT * FROM book_list WHERE b_id = $1';
     client.query(query, [book_id], (err, result) => {
-        const u_name = usersession.u_name;
-        delete result.rows[0].loaned_to[u_name];
+        const u_id = usersession.u_id;
         let stocks = result.rows[0].book_stocks + 1;
-        const query1 = 'UPDATE book_list SET loaned_to = $1,book_stocks = $2 WHERE b_id = $3';
-        const a = result.rows[0].loaned_to;
-        client.query(query1, [a, stocks, book_id], (err1, result1) => {
-            res.redirect('/home');
+        const query1 = 'UPDATE book_list SET book_stocks = $1 WHERE b_id = $2';
+        client.query(query1, [stocks, book_id], (err1, result1) => {
+            client.query("DELETE FROM loaned WHERE u_id = $1 AND b_id = $2", [u_id, book_id], (err2, result2) => {
+                res.redirect('/home');
+            });
         });
     });
-    // const query:string = 'UPDATE book_list SET loaned_to->$1 = $2 WHERE b_id = $3'
-    // client.query(query,[usersession.u_name,false,book_id],(err,result) =>{
-    //   res.redirect('/home');
-    // })
 });
 //edit a book
 app.get('/home/book_view/:id', (req, res) => {
@@ -202,6 +204,12 @@ app.post('/home/add_book', (req, res) => {
         else {
             res.json({ message: "The book or isbn code already exists." });
         }
+    });
+});
+//audit log
+app.get('/home/audit_log', (req, res) => {
+    client1.query("SELECT * FROM audit_log", (err, result) => {
+        res.render('a_audit_log', { data: result.rows });
     });
 });
 app.listen(3000);

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/navigation_styles.css">
+    <title>Audit Log</title>
+</head>
+<body>
+    <div class="topnav">
+        <a href="/home">Books list</a>
+        <a href="/home/add_book">Add a book</a>
+        <a class="active" href="/home/audit_log">Audit Log</a>
+        <a href="/logout">Logout</a>
+    </div>
+    <table style="width:100%">
+		<caption>audit log</caption>
+  		<thead>
+   		 <tr>
+            <th>Log</th>
+            <th>Timestamp</th>
+         </tr>
+        </thead>
+        <tbody>
+         <% data.forEach(entry => { %>
+          <tr>
+            <td><%= entry.log_text %></td>
+            <td><%= entry.ts %></td>
+          </tr>
+         <% }) %> 
+        </tbody>
+    </table>
+</body>
+</html>
